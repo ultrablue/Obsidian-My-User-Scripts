@@ -1,4 +1,3 @@
-
 module.exports = async (params) => {
     const { app } = params;
     const activeEditor = app.workspace.activeEditor;
@@ -10,7 +9,7 @@ module.exports = async (params) => {
     const cache = app.metadataCache.getFileCache(file);
     const frontmatter = cache?.frontmatter || {};
     const existingKeys = Object.keys(frontmatter).filter(k => k !== 'position');
-    
+
     const registeredProperties = app.metadataTypeManager?.properties || app.metadataTypeManager?.registeredProperties || {};
     const vaultTags = Object.keys(app.metadataCache.getTags() || {}).map(t => t.replace(/^#/, ''));
 
@@ -19,7 +18,7 @@ module.exports = async (params) => {
         const propTypeObj = registeredProperties[key];
         if (typeof propTypeObj === 'string') return propTypeObj;
         if (propTypeObj && typeof propTypeObj.type === 'string') return propTypeObj.type;
-        return 'text'; 
+        return 'text';
     };
 
     // --- Hardcoded Lucide SVGs for QuickAdd Compatibility ---
@@ -42,9 +41,9 @@ module.exports = async (params) => {
     const getIconNameForType = (type, key) => {
         const lowerKey = (key || '').toLowerCase();
         if (lowerKey === 'tags') return 'tags';
-        if (lowerKey === 'aliases') return 'forward'; 
-        
-        switch((type || '').toLowerCase()) {
+        if (lowerKey === 'aliases') return 'forward';
+
+        switch ((type || '').toLowerCase()) {
             case 'number': return 'hash';
             case 'checkbox': return 'check-square';
             case 'date': return 'calendar';
@@ -98,7 +97,7 @@ module.exports = async (params) => {
         display: flex; align-items: center; justify-content: center; 
         width: 16px; height: 16px; color: var(--text-muted); opacity: 0.8;
     `;
-    injectIcon(propIcon, 'text'); 
+    injectIcon(propIcon, 'text');
 
     const propInput = document.createElement('input');
     propInput.placeholder = "Property...";
@@ -137,7 +136,7 @@ module.exports = async (params) => {
         color: var(--text-normal); font-size: var(--font-ui-small);
         outline: none; flex-grow: 1; min-width: 80px; height: 20px;
     `;
-    
+
     const valSuggester = document.createElement('div');
     valSuggester.style.cssText = `
         position: absolute; top: 100%; left: 0; width: 100%;
@@ -156,7 +155,7 @@ module.exports = async (params) => {
     // --- Focus Highlighting Logic ---
     propInput.addEventListener('focus', () => propContainer.style.borderColor = 'var(--interactive-accent)');
     propInput.addEventListener('blur', () => propContainer.style.borderColor = 'transparent');
-    
+
     valInput.addEventListener('focus', () => valContainer.style.borderColor = 'var(--interactive-accent)');
     valInput.addEventListener('blur', () => valContainer.style.borderColor = 'transparent');
 
@@ -173,7 +172,7 @@ module.exports = async (params) => {
         suggester.style.display = 'block';
         filteredKeys.forEach((key, index) => {
             const type = getTypeForKey(key);
-            
+
             const item = document.createElement('div');
             item.style.cssText = `
                 display: flex; align-items: center; gap: 8px;
@@ -181,14 +180,14 @@ module.exports = async (params) => {
                 cursor: pointer; color: var(--text-muted);
                 background: ${index === selectedIndex ? 'var(--background-modifier-hover)' : 'transparent'};
             `;
-            
+
             const iconEl = document.createElement('div');
             iconEl.style.cssText = `display: flex; align-items: center; width: 14px; height: 14px; opacity: 0.7;`;
             injectIcon(iconEl, getIconNameForType(type, key));
 
             const textEl = document.createElement('span');
             textEl.textContent = key;
-            
+
             item.append(iconEl, textEl);
 
             item.addEventListener('click', () => selectProperty(key));
@@ -228,7 +227,7 @@ module.exports = async (params) => {
 
     const renderValSuggestions = () => {
         valSuggester.innerHTML = '';
-        if (valFiltered.length === 0 || state.key.toLowerCase() !== 'tags') {
+        if (valFiltered.length === 0 || !state.isList) {
             valSuggester.style.display = 'none';
             return;
         }
@@ -241,18 +240,18 @@ module.exports = async (params) => {
                 cursor: pointer; color: var(--text-muted);
                 background: ${index === valSelectedIndex ? 'var(--background-modifier-hover)' : 'transparent'};
             `;
-            
+
             const iconEl = document.createElement('div');
             iconEl.style.cssText = `display: flex; align-items: center; width: 14px; height: 14px; opacity: 0.7;`;
-            injectIcon(iconEl, 'hash'); 
-            
+            injectIcon(iconEl, 'hash');
+
             const textEl = document.createElement('span');
             textEl.textContent = tag;
 
             item.append(iconEl, textEl);
 
             item.addEventListener('mousedown', (e) => {
-                e.preventDefault(); 
+                e.preventDefault();
                 commitVal(tag);
             });
             valSuggester.appendChild(item);
@@ -260,9 +259,20 @@ module.exports = async (params) => {
     };
 
     const updateValSuggestions = () => {
-        if (state.key.toLowerCase() !== 'tags') return;
+        if (!state.isList) {
+            valSuggester.style.display = 'none';
+            return;
+        }
         const query = valInput.value.toLowerCase().replace(/^#/, '');
-        valFiltered = vaultTags.filter(t => t.toLowerCase().includes(query) && !state.listValues.includes(t));
+        let sourceValues = [];
+        if (state.key.toLowerCase() === 'tags') {
+            sourceValues = vaultTags;
+        } else {
+            const files = app.vault.getMarkdownFiles();
+            const cacheValues = files.flatMap(f => app.metadataCache.getFileCache(f)?.frontmatter?.[state.key] || []);
+            sourceValues = [...new Set(cacheValues.filter(v => typeof v === 'string'))];
+        }
+        valFiltered = sourceValues.filter(v => v.toLowerCase().includes(query) && !state.listValues.includes(v));
         valSelectedIndex = valFiltered.length > 0 ? 0 : -1;
         renderValSuggestions();
     };
@@ -284,13 +294,13 @@ module.exports = async (params) => {
         renderPills();
         await saveToFile(state.key, state.listValues);
         valInput.focus();
-        updateValSuggestions(); 
+        updateValSuggestions();
     };
 
     // --- List & State Logic ---
     const renderPills = () => {
         valContainer.querySelectorAll('.multi-select-pill').forEach(p => p.remove());
-        
+
         state.listValues.forEach((item, index) => {
             const pill = document.createElement('div');
             pill.className = 'multi-select-pill';
@@ -301,15 +311,15 @@ module.exports = async (params) => {
                 font-size: var(--font-ui-smaller); border: var(--pill-border-width) solid var(--pill-border-color);
                 white-space: nowrap;
             `;
-            
+
             const text = document.createElement('span');
             text.textContent = item;
-            
+
             const removeBtn = document.createElement('div');
             removeBtn.className = 'multi-select-pill-remove-button';
             removeBtn.style.cssText = `cursor: pointer; display: flex; align-items: center; opacity: 0.7;`;
-            injectIcon(removeBtn, 'x'); 
-            
+            injectIcon(removeBtn, 'x');
+
             removeBtn.addEventListener('click', async () => {
                 state.listValues.splice(index, 1);
                 renderPills();
@@ -326,16 +336,16 @@ module.exports = async (params) => {
     const selectProperty = (key) => {
         propInput.value = key;
         suggester.style.display = 'none';
-        
+
         state.key = key;
         let detectedType = getTypeForKey(key);
-        
+
         const lowerKey = key.toLowerCase();
         if (['tags', 'aliases', 'cssclasses'].includes(lowerKey)) {
             detectedType = 'tags';
         }
         state.type = detectedType;
-        
+
         injectIcon(propIcon, getIconNameForType(state.type, key));
 
         const val = frontmatter[key];
@@ -347,27 +357,25 @@ module.exports = async (params) => {
                 parsedVal = val.split(',').map(s => s.trim()).filter(s => s);
             }
             state.listValues = Array.isArray(parsedVal) ? [...parsedVal] : (parsedVal ? [parsedVal.toString()] : []);
-            
+
             renderPills();
             valInput.placeholder = "Add item...";
             valInput.type = 'text';
             valInput.value = '';
         } else {
             state.listValues = [];
-            renderPills(); 
+            renderPills();
             valInput.value = val ?? '';
             valInput.placeholder = "Value...";
             valInput.type = state.type === 'number' ? 'number' : (state.type === 'date' ? 'date' : 'text');
             valSuggester.style.display = 'none';
         }
-        
+
         valInput.focus();
     };
 
     valInput.addEventListener('keydown', async (e) => {
-        const isTags = state.key.toLowerCase() === 'tags';
-
-        if (isTags && valSuggester.style.display === 'block') {
+        if (state.isList && valSuggester.style.display === 'block') {
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
                 valSelectedIndex = Math.min(valSelectedIndex + 1, valFiltered.length - 1);
@@ -390,11 +398,11 @@ module.exports = async (params) => {
         if (state.isList) {
             if (e.key === 'Enter' || (e.key === 'Escape' && valInput.value === '')) {
                 e.preventDefault();
-                e.stopPropagation(); 
+                e.stopPropagation();
                 if (valInput.value.trim()) {
                     await commitVal(valInput.value);
                 } else {
-                    cleanup(); 
+                    cleanup();
                 }
             } else if (e.key === 'Backspace' && valInput.value === '') {
                 e.preventDefault();
@@ -411,7 +419,7 @@ module.exports = async (params) => {
                 let finalVal = valInput.value;
                 if (state.type === 'number') finalVal = finalVal === '' ? null : Number(finalVal);
                 if (state.type === 'checkbox') finalVal = finalVal.toLowerCase() === 'true';
-                
+
                 await saveToFile(state.key, finalVal);
                 cleanup();
             }
@@ -419,18 +427,17 @@ module.exports = async (params) => {
     });
 
     const saveToFile = async (key, value) => {
-        await app.fileManager.processFrontMatter(file, fm => { 
+        await app.fileManager.processFrontMatter(file, fm => {
             if (value === null || value === undefined || (Array.isArray(value) && value.length === 0)) {
                 fm[key] = Array.isArray(value) ? [] : value;
             } else {
-                fm[key] = value; 
+                fm[key] = value;
             }
         });
         new Notice("The property was updated.");
     };
 
     // --- Lifecycle Management ---
-    // Ensure focus happens after listeners are established
     propInput.focus();
 
     const handleGlobalKeydown = (e) => {
@@ -455,6 +462,3 @@ module.exports = async (params) => {
     document.addEventListener('keydown', handleGlobalKeydown);
     document.addEventListener('mousedown', handleGlobalMousedown);
 };
-
-
-
