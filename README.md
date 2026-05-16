@@ -10,3 +10,5 @@ A vibe coded script that makes editing Obsidian YAML properties easier.
 - QuickAdd
 - Requires some Lucid icons
 
+## Roadmao
+The next major version will be an Obsidian plugin.
