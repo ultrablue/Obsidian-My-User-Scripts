@@ -426,6 +426,7 @@ module.exports = async (params) => {
                 fm[key] = value; 
             }
         });
+        new Notice("The property was updated.");
     };
 
     // --- Lifecycle Management ---
