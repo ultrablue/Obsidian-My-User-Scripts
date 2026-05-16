@@ -1,5 +1,5 @@
 // Filename: frictionless-properties-editor.js
-// Version: 1.1.1
+// Version: 1.1.2
 
 module.exports = async (params) => {
     const { app } = params;
@@ -228,8 +228,6 @@ module.exports = async (params) => {
     let valFiltered = [];
     let valSelectedIndex = 0;
 
-    // Filename: frictionless-properties-editor.js
-    // Version: 1.1.1
 
     const renderValSuggestions = () => {
         valSuggester.innerHTML = '';
@@ -265,11 +263,18 @@ module.exports = async (params) => {
             if (isWikiLink) {
                 const linkIconEl = document.createElement('div');
                 linkIconEl.style.cssText = `
-                    display: flex; align-items: center; width: 14px; height: 14px; 
-                    opacity: 0.6; cursor: pointer;
+                    display: flex; align-items: center; justify-content: center;
+                    width: 14px; height: 14px; opacity: 0.6; cursor: pointer;
                 `;
                 linkIconEl.className = 'clickable-icon';
-                injectIcon(linkIconEl, 'link');
+
+                // Use Obsidian's native global icon injection utility
+                if (typeof setIcon === 'function') {
+                    setIcon(linkIconEl, 'link');
+                } else {
+                    // Fail-safe raw SVG if setIcon is somehow inaccessible in this context
+                    linkIconEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
+                }
 
                 // Allow clicking the icon itself to natively navigate to the note
                 linkIconEl.addEventListener('click', (e) => {
