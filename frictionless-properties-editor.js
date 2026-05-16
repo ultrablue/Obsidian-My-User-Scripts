@@ -1,5 +1,5 @@
 // Filename: frictionless-properties-editor.js
-// Version: 1.1.0
+// Version: 1.1.1
 
 module.exports = async (params) => {
     const { app } = params;
@@ -228,6 +228,9 @@ module.exports = async (params) => {
     let valFiltered = [];
     let valSelectedIndex = 0;
 
+    // Filename: frictionless-properties-editor.js
+    // Version: 1.1.1
+
     const renderValSuggestions = () => {
         valSuggester.innerHTML = '';
         if (valFiltered.length === 0 || !state.isList) {
@@ -244,16 +247,21 @@ module.exports = async (params) => {
                 background: ${index === valSelectedIndex ? 'var(--background-modifier-hover)' : 'transparent'};
             `;
 
-            // Text label container - visually strip wiki brackets if present
-            const textEl = document.createElement('span');
-            const cleanDisplay = typeof tag === 'string' && tag.startsWith('[[') && tag.endsWith(']]')
+            // Text label container - visually handle bracketed strings or raw text cleanly
+            const isBracketed = typeof tag === 'string' && tag.startsWith('[[') && tag.endsWith(']]');
+            const cleanDisplay = isBracketed
                 ? tag.replace(/^\[\[/, '').replace(/\]\]$/, '').split('|').pop()
                 : tag;
+
+            const textEl = document.createElement('span');
             textEl.textContent = cleanDisplay;
             item.appendChild(textEl);
 
-            // Append link icon to the right side if the value is a wiki link
-            const isWikiLink = typeof tag === 'string' && tag.startsWith('[[') && tag.endsWith(']]');
+            // Determine if the value functions as an internal note link
+            const lookupPath = isBracketed ? tag.replace(/^\[\[/, '').replace(/\]\]$/, '').split('|')[0] : tag;
+            const pointsToNote = typeof tag === 'string' && !!app.metadataCache.getFirstLinkpathDest(lookupPath, '');
+            const isWikiLink = isBracketed || pointsToNote;
+
             if (isWikiLink) {
                 const linkIconEl = document.createElement('div');
                 linkIconEl.style.cssText = `
@@ -263,11 +271,10 @@ module.exports = async (params) => {
                 linkIconEl.className = 'clickable-icon';
                 injectIcon(linkIconEl, 'link');
 
-                // Allow clicking the icon itself to natively follow the link
+                // Allow clicking the icon itself to natively navigate to the note
                 linkIconEl.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Stop from triggering the dropdown selection
-                    const path = tag.replace(/^\[\[/, '').replace(/\]\]$/, '').split('|')[0];
-                    app.workspace.openLinkText(path, '', true);
+                    e.stopPropagation(); // Stop from choosing the autocomplete choice
+                    app.workspace.openLinkText(lookupPath, '', true);
                 });
 
                 item.appendChild(linkIconEl);
@@ -275,7 +282,9 @@ module.exports = async (params) => {
 
             item.addEventListener('mousedown', (e) => {
                 e.preventDefault();
-                commitVal(tag);
+                // Wrap the selection back inside wikilink syntax if it resolves to a valid note
+                const committedValue = isBracketed ? tag : (pointsToNote ? `[[${tag}]]` : tag);
+                commitVal(committedValue);
             });
             valSuggester.appendChild(item);
         });
