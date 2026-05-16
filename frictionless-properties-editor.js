@@ -1,3 +1,6 @@
+// Filename: frictionless-properties-editor.js
+// Version: 1.1.0
+
 module.exports = async (params) => {
     const { app } = params;
     const activeEditor = app.workspace.activeEditor;
@@ -235,20 +238,40 @@ module.exports = async (params) => {
         valFiltered.forEach((tag, index) => {
             const item = document.createElement('div');
             item.style.cssText = `
-                display: flex; align-items: center; gap: 8px;
+                display: flex; align-items: center; justify-content: space-between; gap: 8px;
                 padding: 4px 8px; font-size: var(--font-ui-small);
                 cursor: pointer; color: var(--text-muted);
                 background: ${index === valSelectedIndex ? 'var(--background-modifier-hover)' : 'transparent'};
             `;
 
-            const iconEl = document.createElement('div');
-            iconEl.style.cssText = `display: flex; align-items: center; width: 14px; height: 14px; opacity: 0.7;`;
-            injectIcon(iconEl, 'hash');
-
+            // Text label container - visually strip wiki brackets if present
             const textEl = document.createElement('span');
-            textEl.textContent = tag;
+            const cleanDisplay = typeof tag === 'string' && tag.startsWith('[[') && tag.endsWith(']]')
+                ? tag.replace(/^\[\[/, '').replace(/\]\]$/, '').split('|').pop()
+                : tag;
+            textEl.textContent = cleanDisplay;
+            item.appendChild(textEl);
 
-            item.append(iconEl, textEl);
+            // Append link icon to the right side if the value is a wiki link
+            const isWikiLink = typeof tag === 'string' && tag.startsWith('[[') && tag.endsWith(']]');
+            if (isWikiLink) {
+                const linkIconEl = document.createElement('div');
+                linkIconEl.style.cssText = `
+                    display: flex; align-items: center; width: 14px; height: 14px; 
+                    opacity: 0.6; cursor: pointer;
+                `;
+                linkIconEl.className = 'clickable-icon';
+                injectIcon(linkIconEl, 'link');
+
+                // Allow clicking the icon itself to natively follow the link
+                linkIconEl.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Stop from triggering the dropdown selection
+                    const path = tag.replace(/^\[\[/, '').replace(/\]\]$/, '').split('|')[0];
+                    app.workspace.openLinkText(path, '', true);
+                });
+
+                item.appendChild(linkIconEl);
+            }
 
             item.addEventListener('mousedown', (e) => {
                 e.preventDefault();
@@ -263,7 +286,7 @@ module.exports = async (params) => {
             valSuggester.style.display = 'none';
             return;
         }
-        const query = valInput.value.toLowerCase().replace(/^#/, '');
+        const rawQuery = valInput.value.toLowerCase();
         let sourceValues = [];
         if (state.key.toLowerCase() === 'tags') {
             sourceValues = vaultTags;
@@ -272,6 +295,7 @@ module.exports = async (params) => {
             const cacheValues = files.flatMap(f => app.metadataCache.getFileCache(f)?.frontmatter?.[state.key] || []);
             sourceValues = [...new Set(cacheValues.filter(v => typeof v === 'string'))];
         }
+        const query = state.key.toLowerCase() === 'tags' ? rawQuery.replace(/^#/, '') : rawQuery;
         valFiltered = sourceValues.filter(v => v.toLowerCase().includes(query) && !state.listValues.includes(v));
         valSelectedIndex = valFiltered.length > 0 ? 0 : -1;
         renderValSuggestions();
