@@ -339,7 +339,7 @@ module.exports = async (params) => {
         injectIcon(propIcon, getIconNameForType(state.type, key));
 
         const val = frontmatter[key];
-        state.isList = ['multitext', 'tags', 'aliases'].includes(state.type) || Array.isArray(val);
+        state.isList = ['multitext', 'list', 'tags', 'aliases'].includes(state.type) || Array.isArray(val);
 
         if (state.isList) {
             let parsedVal = val;
